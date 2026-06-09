@@ -7,21 +7,28 @@ import type { DayReading } from "@/lib/planGenerator";
 interface MonthGroupProps {
   monthNumber: number;
   days: DayReading[];
-  completed: Set<number>;
-  onToggle: (day: number) => void;
+  completedReadings: Set<string>;
+  onToggleReading: (day: number, idx: number) => void;
+  onToggleDay: (day: number, total: number, complete: boolean) => void;
   defaultOpen?: boolean;
 }
 
 export default function MonthGroup({
   monthNumber,
   days,
-  completed,
-  onToggle,
+  completedReadings,
+  onToggleReading,
+  onToggleDay,
   defaultOpen = false,
 }: MonthGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
-  const completedInMonth = days.filter((d) => completed.has(d.day)).length;
-  const allDone = completedInMonth === days.length;
+
+  // Count fully-completed days in this month
+  const completedDays = days.filter((d) =>
+    d.readings.length > 0 &&
+    d.readings.every((_, i) => completedReadings.has(`${d.day}-${i}`))
+  ).length;
+  const allDone = completedDays === days.length;
 
   return (
     <div className="border-b border-bible-border">
@@ -31,7 +38,9 @@ export default function MonthGroup({
       >
         <div className="flex items-center gap-3">
           <div
-            className={`w-1.5 h-1.5 rounded-full ${allDone ? "bg-bible-success" : "bg-bible-gold-muted"}`}
+            className={`w-1.5 h-1.5 rounded-full ${
+              allDone ? "bg-bible-success" : "bg-bible-gold-muted"
+            }`}
           />
           <span className="text-xs tracking-widest uppercase text-bible-muted">
             Month {monthNumber}
@@ -42,16 +51,24 @@ export default function MonthGroup({
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-bible-dim">
-            {completedInMonth}/{days.length}
+            {completedDays}/{days.length}
           </span>
           <svg
             width="12"
             height="12"
             viewBox="0 0 12 12"
             fill="none"
-            className={`text-bible-dim transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+            className={`text-bible-dim transition-transform duration-200 ${
+              open ? "rotate-180" : ""
+            }`}
           >
-            <path d="M2 4L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path
+              d="M2 4L6 8L10 4"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
       </button>
@@ -62,8 +79,9 @@ export default function MonthGroup({
             <DayItem
               key={day.day}
               day={day}
-              isCompleted={completed.has(day.day)}
-              onToggle={onToggle}
+              completedReadings={completedReadings}
+              onToggleReading={onToggleReading}
+              onToggleDay={onToggleDay}
             />
           ))}
         </div>

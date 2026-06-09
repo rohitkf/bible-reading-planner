@@ -2,42 +2,65 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-export function useProgress(planKey: string, totalDays: number) {
-  const storageKey = `bible-plan-progress-${planKey}`;
-  const [completed, setCompleted] = useState<Set<number>>(new Set());
+export function useProgress(planKey: string) {
+  const storageKey = `bible-plan-readings-${planKey}`;
+  const [completedReadings, setCompletedReadings] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        setCompleted(new Set(JSON.parse(raw) as number[]));
-      }
+      if (raw) setCompletedReadings(new Set(JSON.parse(raw) as string[]));
     } catch {
       // ignore
     }
     setHydrated(true);
   }, [storageKey]);
 
-  const toggle = useCallback(
-    (day: number) => {
-      setCompleted((prev) => {
-        const next = new Set(prev);
-        if (next.has(day)) next.delete(day);
-        else next.add(day);
-        try {
-          localStorage.setItem(storageKey, JSON.stringify([...next]));
-        } catch {
-          // ignore
-        }
-        return next;
-      });
+  const persist = useCallback(
+    (next: Set<string>) => {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify([...next]));
+      } catch {
+        // ignore
+      }
     },
     [storageKey]
   );
 
+  const toggleReading = useCallback(
+    (dayNum: number, readingIdx: number) => {
+      setCompletedReadings((prev) => {
+        const key = `${dayNum}-${readingIdx}`;
+        const next = new Set(prev);
+        if (next.has(key)) next.delete(key);
+        else next.add(key);
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
+  // Marks all readings in a day as complete or clears them all
+  const setDayComplete = useCallback(
+    (dayNum: number, totalReadings: number, complete: boolean) => {
+      setCompletedReadings((prev) => {
+        const next = new Set(prev);
+        for (let i = 0; i < totalReadings; i++) {
+          const key = `${dayNum}-${i}`;
+          if (complete) next.add(key);
+          else next.delete(key);
+        }
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
   const reset = useCallback(() => {
-    setCompleted(new Set());
+    setCompletedReadings(new Set());
     try {
       localStorage.removeItem(storageKey);
     } catch {
@@ -45,8 +68,5 @@ export function useProgress(planKey: string, totalDays: number) {
     }
   }, [storageKey]);
 
-  const completedCount = completed.size;
-  const pct = totalDays > 0 ? Math.round((completedCount / totalDays) * 100) : 0;
-
-  return { completed, toggle, reset, completedCount, pct, hydrated };
+  return { completedReadings, toggleReading, setDayComplete, reset, hydrated };
 }
