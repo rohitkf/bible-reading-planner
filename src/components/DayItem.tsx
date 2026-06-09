@@ -1,42 +1,176 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { DayReading } from "@/lib/planGenerator";
 
 interface DayItemProps {
   day: DayReading;
-  completedReadings: Set<string>;
-  onToggleReading: (day: number, idx: number) => void;
-  onToggleDay: (day: number, total: number, complete: boolean) => void;
+  completedChapters: Set<string>;
+  onToggleChapter: (day: number, chapterIdx: number) => void;
+  onToggleGroup: (day: number, startIdx: number, count: number, complete: boolean) => void;
+  onToggleDay: (day: number, totalChapters: number, complete: boolean) => void;
 }
 
+// ── Confetti particle ───────────────────────────────────────────────────────
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  rotation: number;
+  rotSpeed: number;
+  life: number;
+}
+
+const CONFETTI_COLORS = ["#c8963c", "#d4a848", "#4a8a60", "#8a8068", "#ddd5b8"];
+
+function ConfettiCanvas({ active }: { active: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+  const particlesRef = useRef<Particle[]>([]);
+  const idRef = useRef(0);
+
+  useEffect(() => {
+    if (!active) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Spawn particles
+    const count = 40;
+    const rect = canvas.getBoundingClientRect();
+    const cx = rect.width / 2;
+    particlesRef.current = Array.from({ length: count }, () => ({
+      id: idRef.current++,
+      x: cx + (Math.random() - 0.5) * rect.width * 0.6,
+      y: rect.height * 0.3,
+      vx: (Math.random() - 0.5) * 4,
+      vy: -Math.random() * 4 - 2,
+      color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      size: Math.random() * 5 + 3,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.3,
+      life: 1,
+    }));
+
+    const draw = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      particlesRef.current = particlesRef.current.filter((p) => p.life > 0);
+      if (particlesRef.current.length === 0) return;
+
+      for (const p of particlesRef.current) {
+        p.x += p.vx;
+        p.vy += 0.12; // gravity
+        p.y += p.vy;
+        p.rotation += p.rotSpeed;
+        p.life -= 0.018;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        ctx.restore();
+      }
+      animRef.current = requestAnimationFrame(draw);
+    };
+    animRef.current = requestAnimationFrame(draw);
+
+    return () => cancelAnimationFrame(animRef.current);
+  }, [active]);
+
+  if (!active) return null;
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 w-full h-full pointer-events-none"
+      style={{ zIndex: 10 }}
+    />
+  );
+}
+
+// ── Progress bar ─────────────────────────────────────────────────────────────
+function DayProgressBar({ pct }: { pct: number }) {
+  let color: string;
+  if (pct === 100) color = "#4a8a60"; // green
+  else if (pct >= 50) color = "#c8963c"; // gold/orange
+  else if (pct > 0) color = "#8a5a3a"; // muted amber-red
+  else return null; // don't render if 0%
+
+  return (
+    <div className="h-0.5 w-full bg-bible-border overflow-hidden">
+      <div
+        className="h-full transition-all duration-300"
+        style={{ width: `${pct}%`, backgroundColor: color }}
+      />
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 export default function DayItem({
   day,
-  completedReadings,
-  onToggleReading,
+  completedChapters,
+  onToggleChapter,
+  onToggleGroup,
   onToggleDay,
 }: DayItemProps) {
   const [expanded, setExpanded] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const [showConfetti, setShowConfetti] = useState(false);
+  const prevPctRef = useRef(0);
 
-  const total = day.readings.length;
-  const doneCount = day.readings.filter((_, i) =>
-    completedReadings.has(`${day.day}-${i}`)
-  ).length;
+  const total = day.chapterCount;
+  const doneCount = Array.from({ length: total }, (_, i) =>
+    completedChapters.has(`${day.day}-${i}`)
+  ).filter(Boolean).length;
+
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   const allDone = total > 0 && doneCount === total;
   const partial = doneCount > 0 && !allDone;
 
+  // Fire confetti when we cross 100%
+  useEffect(() => {
+    if (pct === 100 && prevPctRef.current < 100) {
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 2000);
+      return () => clearTimeout(t);
+    }
+    prevPctRef.current = pct;
+  }, [pct]);
+
+  const toggleGroupExpand = (groupIdx: number) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupIdx)) next.delete(groupIdx);
+      else next.add(groupIdx);
+      return next;
+    });
+  };
+
   return (
     <div
-      className={`border-b border-bible-border transition-opacity ${
+      className={`border-b border-bible-border transition-opacity relative ${
         allDone ? "opacity-55" : ""
       }`}
     >
+      <ConfettiCanvas active={showConfetti} />
+
       {/* ── Collapsed row ── */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         {/* Day-level circle — select-all / clear-all */}
         <button
           onClick={() => onToggleDay(day.day, total, !allDone)}
-          aria-label={allDone ? "Mark day as unread" : "Mark all readings as done"}
+          aria-label={allDone ? "Mark day as unread" : "Mark all chapters as done"}
           className="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold"
           style={{
             borderColor: allDone ? "#4a8a60" : partial ? "#c8963c" : "#534e42",
@@ -98,52 +232,138 @@ export default function DayItem({
         </button>
       </div>
 
-      {/* ── Expanded reading checklist ── */}
+      {/* ── Per-day progress bar ── */}
+      <DayProgressBar pct={pct} />
+
+      {/* ── Expanded reading groups ── */}
       {expanded && (
         <div className="px-4 pb-4 ml-9">
-          <div className="border-t border-bible-border pt-3 space-y-1.5">
-            {day.readings.map((reading, i) => {
-              const done = completedReadings.has(`${day.day}-${i}`);
+          <div className="border-t border-bible-border pt-3 space-y-2">
+            {day.readingGroups.map((group, gi) => {
+              const groupDone = Array.from({ length: group.count }, (_, i) =>
+                completedChapters.has(`${day.day}-${group.startIdx + i}`)
+              ).filter(Boolean).length;
+              const groupAllDone = groupDone === group.count;
+              const groupPartial = groupDone > 0 && !groupAllDone;
+              const groupOpen = expandedGroups.has(gi);
+              const multiChapter = group.count > 1;
+
               return (
-                <button
-                  key={i}
-                  onClick={() => onToggleReading(day.day, i)}
-                  className="w-full flex items-center gap-2.5 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded py-0.5"
-                >
-                  {/* Square checkbox */}
-                  <div
-                    className="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all"
-                    style={{
-                      borderColor: done ? "#4a8a60" : "#534e42",
-                      backgroundColor: done ? "#4a8a60" : "transparent",
-                    }}
-                  >
-                    {done && (
-                      <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-                        <path
-                          d="M1 3.5L3.5 6L8 1"
-                          stroke="white"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                <div key={gi}>
+                  {/* Reading group row */}
+                  <div className="flex items-center gap-2">
+                    {/* Group checkbox (square, 3-state) */}
+                    <button
+                      onClick={() => onToggleGroup(day.day, group.startIdx, group.count, !groupAllDone)}
+                      aria-label={groupAllDone ? `Unmark ${group.label}` : `Mark ${group.label} complete`}
+                      className="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold"
+                      style={{
+                        borderColor: groupAllDone ? "#4a8a60" : groupPartial ? "#c8963c" : "#534e42",
+                        backgroundColor: groupAllDone ? "#4a8a60" : "transparent",
+                      }}
+                    >
+                      {groupAllDone && (
+                        <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                          <path
+                            d="M1 3.5L3.5 6L8 1"
+                            stroke="white"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
+                      {groupPartial && <div className="w-1.5 h-1.5 rounded-sm bg-bible-gold" />}
+                    </button>
+
+                    {/* Group label */}
+                    <span
+                      className={`flex-1 text-sm transition-colors ${
+                        groupAllDone
+                          ? "text-bible-dim line-through"
+                          : "text-bible-muted"
+                      }`}
+                    >
+                      {group.label}
+                    </span>
+
+                    {/* Expand chapters button — only for multi-chapter groups */}
+                    {multiChapter && (
+                      <button
+                        onClick={() => toggleGroupExpand(gi)}
+                        aria-label={groupOpen ? "Collapse chapters" : "Expand chapters"}
+                        className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-bible-dim hover:text-bible-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded"
+                      >
+                        <svg
+                          width="10"
+                          height="10"
+                          viewBox="0 0 10 10"
+                          fill="none"
+                          className={`transition-transform duration-200 ${groupOpen ? "rotate-180" : ""}`}
+                        >
+                          <path
+                            d="M2 3.5L5 6.5L8 3.5"
+                            stroke="currentColor"
+                            strokeWidth="1.4"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
                     )}
                   </div>
-                  <span
-                    className={`text-sm transition-colors ${
-                      done
-                        ? "text-bible-dim line-through"
-                        : "text-bible-muted group-hover:text-bible-text"
-                    }`}
-                  >
-                    {reading}
-                  </span>
-                </button>
+
+                  {/* Individual chapter checkboxes */}
+                  {(groupOpen || !multiChapter) && multiChapter && (
+                    <div className="ml-6 mt-1.5 space-y-1">
+                      {Array.from({ length: group.count }, (_, ci) => {
+                        const chapterIdx = group.startIdx + ci;
+                        const chDone = completedChapters.has(`${day.day}-${chapterIdx}`);
+                        const chapterNum = day.chapters[chapterIdx]?.chapter ?? chapterIdx + 1;
+                        return (
+                          <button
+                            key={ci}
+                            onClick={() => onToggleChapter(day.day, chapterIdx)}
+                            className="w-full flex items-center gap-2 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded py-0.5"
+                          >
+                            <div
+                              className="flex-shrink-0 w-3 h-3 rounded border flex items-center justify-center transition-all"
+                              style={{
+                                borderColor: chDone ? "#4a8a60" : "#534e42",
+                                backgroundColor: chDone ? "#4a8a60" : "transparent",
+                              }}
+                            >
+                              {chDone && (
+                                <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
+                                  <path
+                                    d="M0.5 2.5L2.5 4.5L5.5 0.5"
+                                    stroke="white"
+                                    strokeWidth="1.2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+                            <span
+                              className={`text-xs transition-colors ${
+                                chDone
+                                  ? "text-bible-dim line-through"
+                                  : "text-bible-dim group-hover:text-bible-muted"
+                              }`}
+                            >
+                              Ch. {chapterNum}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               );
             })}
 
-            <div className="text-[11px] text-bible-dim pt-2 tracking-wide">
+            <div className="text-[11px] text-bible-dim pt-1 tracking-wide">
               ~{Math.round(day.chapterCount * 3)} min reading time
             </div>
           </div>

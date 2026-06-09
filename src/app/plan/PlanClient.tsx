@@ -5,11 +5,13 @@ import { useMemo, useRef, useState } from "react";
 import { generatePlan, getTotalDays, formatPlanLabel } from "@/lib/planGenerator";
 import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS } from "@/lib/bibleData";
 import { useProgress } from "@/hooks/useProgress";
+import { useNotifications } from "@/hooks/useNotifications";
 import ProgressBar from "@/components/ProgressBar";
 import SectionHeader from "@/components/SectionHeader";
 import DayItem from "@/components/DayItem";
 import MonthGroup from "@/components/MonthGroup";
 import BooksSkipped from "@/components/BooksSkipped";
+import NotificationBanner from "@/components/NotificationBanner";
 
 type Tab = "plan" | "skipped";
 
@@ -28,27 +30,36 @@ export default function PlanClient() {
 
   const plan = useMemo(() => generatePlan(totalDays), [totalDays]);
 
-  const { completedReadings, toggleReading, setDayComplete, hydrated } =
-    useProgress(planKey);
+  const {
+    completedChapters,
+    toggleChapter,
+    setGroupComplete,
+    setDayComplete,
+    hydrated,
+  } = useProgress(planKey);
 
-  // Derive which days are fully done from reading-level data
+  // Derive which days are fully done from chapter-level data
   const completedDays = useMemo(() => {
     const set = new Set<number>();
     for (const section of plan.sections) {
       for (const day of section.days) {
         if (
-          day.readings.length > 0 &&
-          day.readings.every((_, i) => completedReadings.has(`${day.day}-${i}`))
+          day.chapterCount > 0 &&
+          Array.from({ length: day.chapterCount }, (_, i) =>
+            completedChapters.has(`${day.day}-${i}`)
+          ).every(Boolean)
         ) {
           set.add(day.day);
         }
       }
     }
     return set;
-  }, [completedReadings, plan]);
+  }, [completedChapters, plan]);
 
   const completedCount = completedDays.size;
   const pct = totalDays > 0 ? Math.round((completedCount / totalDays) * 100) : 0;
+
+  const { showBanner, requestPermission, dismiss } = useNotifications(pct);
 
   const firstUnreadRef = useRef<HTMLDivElement | null>(null);
 
@@ -109,6 +120,14 @@ export default function PlanClient() {
         )}
       </header>
 
+      {/* Notification banner */}
+      {showBanner && (
+        <NotificationBanner
+          onEnable={requestPermission}
+          onDismiss={dismiss}
+        />
+      )}
+
       {/* Tabs */}
       <div className="flex border-b border-bible-border sticky top-0 bg-bible-bg z-10">
         {(["plan", "skipped"] as Tab[]).map((tab) => (
@@ -151,9 +170,9 @@ export default function PlanClient() {
                   const currentMonthIdx = groups.findIndex((g) =>
                     g.days.some(
                       (d) =>
-                        !d.readings.every((_, i) =>
-                          completedReadings.has(`${d.day}-${i}`)
-                        )
+                        !Array.from({ length: d.chapterCount }, (_, i) =>
+                          completedChapters.has(`${d.day}-${i}`)
+                        ).every(Boolean)
                     )
                   );
                   return groups.map((group, idx) => (
@@ -161,8 +180,9 @@ export default function PlanClient() {
                       key={group.monthNum}
                       monthNumber={group.monthNum}
                       days={group.days}
-                      completedReadings={completedReadings}
-                      onToggleReading={toggleReading}
+                      completedChapters={completedChapters}
+                      onToggleChapter={toggleChapter}
+                      onToggleGroup={setGroupComplete}
                       onToggleDay={setDayComplete}
                       defaultOpen={idx === currentMonthIdx}
                     />
@@ -186,8 +206,9 @@ export default function PlanClient() {
                       >
                         <DayItem
                           day={day}
-                          completedReadings={completedReadings}
-                          onToggleReading={toggleReading}
+                          completedChapters={completedChapters}
+                          onToggleChapter={toggleChapter}
+                          onToggleGroup={setGroupComplete}
                           onToggleDay={setDayComplete}
                         />
                       </div>

@@ -11,12 +11,18 @@ export interface ChapterRef {
   testament: Testament;
 }
 
+export interface ReadingGroup {
+  label: string;    // e.g. "Genesis 1–43"
+  startIdx: number; // 0-based index into day.chapters (inclusive)
+  count: number;    // number of chapters in this group
+}
+
 export interface DayReading {
   day: number;
   chapters: ChapterRef[];
   title: string;
   chapterCount: number;
-  readings: string[];
+  readingGroups: ReadingGroup[];
 }
 
 export interface PlanSection {
@@ -80,19 +86,21 @@ function buildTitle(chapters: ChapterRef[]): string {
   return order[0];
 }
 
-function formatReadings(chapters: ChapterRef[]): string[] {
-  const result: string[] = [];
+function buildReadingGroups(chapters: ChapterRef[]): ReadingGroup[] {
+  const groups: ReadingGroup[] = [];
   let i = 0;
   while (i < chapters.length) {
     const bookName = chapters[i].bookName;
     const start = chapters[i].chapter;
+    const startIdx = i;
     let j = i;
     while (j < chapters.length && chapters[j].bookName === bookName) j++;
     const end = chapters[j - 1].chapter;
-    result.push(start === end ? `${bookName} ${start}` : `${bookName} ${start}–${end}`);
+    const label = start === end ? `${bookName} ${start}` : `${bookName} ${start}–${end}`;
+    groups.push({ label, startIdx, count: j - startIdx });
     i = j;
   }
-  return result;
+  return groups;
 }
 
 function avgChapters(days: DayReading[]): number {
@@ -122,7 +130,7 @@ export function generatePlan(totalDays: number): ReadingPlan {
       chapters: dayChapters,
       title: buildTitle(dayChapters),
       chapterCount: dayChapters.length,
-      readings: formatReadings(dayChapters),
+      readingGroups: buildReadingGroups(dayChapters),
     });
   }
 

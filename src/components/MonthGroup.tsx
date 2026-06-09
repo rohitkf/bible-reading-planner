@@ -7,26 +7,29 @@ import type { DayReading } from "@/lib/planGenerator";
 interface MonthGroupProps {
   monthNumber: number;
   days: DayReading[];
-  completedReadings: Set<string>;
-  onToggleReading: (day: number, idx: number) => void;
-  onToggleDay: (day: number, total: number, complete: boolean) => void;
+  completedChapters: Set<string>;
+  onToggleChapter: (day: number, chapterIdx: number) => void;
+  onToggleGroup: (day: number, startIdx: number, count: number, complete: boolean) => void;
+  onToggleDay: (day: number, totalChapters: number, complete: boolean) => void;
   defaultOpen?: boolean;
 }
 
 export default function MonthGroup({
   monthNumber,
   days,
-  completedReadings,
-  onToggleReading,
+  completedChapters,
+  onToggleChapter,
+  onToggleGroup,
   onToggleDay,
   defaultOpen = false,
 }: MonthGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
 
-  // Count fully-completed days in this month
   const completedDays = days.filter((d) =>
-    d.readings.length > 0 &&
-    d.readings.every((_, i) => completedReadings.has(`${d.day}-${i}`))
+    d.chapterCount > 0 &&
+    Array.from({ length: d.chapterCount }, (_, i) =>
+      completedChapters.has(`${d.day}-${i}`)
+    ).every(Boolean)
   ).length;
   const allDone = completedDays === days.length;
 
@@ -79,8 +82,9 @@ export default function MonthGroup({
             <DayItem
               key={day.day}
               day={day}
-              completedReadings={completedReadings}
-              onToggleReading={onToggleReading}
+              completedChapters={completedChapters}
+              onToggleChapter={onToggleChapter}
+              onToggleGroup={onToggleGroup}
               onToggleDay={onToggleDay}
             />
           ))}
