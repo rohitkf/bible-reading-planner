@@ -1,9 +1,10 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useMemo, useRef, useState, useCallback } from "react";
+import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { generatePlan, getTotalDays, formatPlanLabel } from "@/lib/planGenerator";
 import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS } from "@/lib/bibleData";
+import { addDays, formatDate, today, daysElapsedSince } from "@/lib/dateUtils";
 import { useProgress } from "@/hooks/useProgress";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useInstallPrompt } from "@/hooks/useInstallPrompt";
@@ -61,6 +62,35 @@ export default function PlanClient() {
 
   const completedCount = completedDays.size;
   const pct = totalDays > 0 ? Math.round((completedCount / totalDays) * 100) : 0;
+
+  // Load start date from localStorage (saved when plan was generated)
+  const [startDate, setStartDate] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("bible-plan-config");
+      if (raw) {
+        const cfg = JSON.parse(raw) as { startDate?: string };
+        setStartDate(cfg.startDate ?? new Date().toISOString().split("T")[0]);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // Original end date: startDate + totalDays
+  const originalEndDate = useMemo(() => {
+    if (!startDate) return formatDate(addDays(today(), totalDays));
+    return formatDate(addDays(new Date(startDate + "T00:00:00"), totalDays));
+  }, [startDate, totalDays]);
+
+  // Pace-adjusted end date: only shown when meaningfully ahead of schedule
+  const paceEndDate = useMemo(() => {
+    if (!startDate || completedCount < 3) return null;
+    const elapsed = daysElapsedSince(startDate);
+    const pace = completedCount / elapsed; // plan-days completed per calendar day
+    if (pace <= 1.1) return null; // not significantly ahead
+    const remaining = totalDays - completedCount;
+    const estimatedDaysLeft = remaining / pace;
+    return formatDate(addDays(today(), estimatedDaysLeft));
+  }, [startDate, completedCount, totalDays]);
 
   const { showBanner, requestPermission, dismiss } = useNotifications(pct);
   const {
@@ -170,6 +200,21 @@ export default function PlanClient() {
           Skips {TOTAL_SKIPPED_CHAPTERS} ch of poetry &amp; census
         </p>
         <p className="text-xs text-bible-dim mt-1">~{avgCpdStr} chapters/day</p>
+
+        {hydrated && (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs text-bible-dim">
+              Ends by{" "}
+              <span className="text-bible-muted font-medium">{originalEndDate}</span>
+            </p>
+            {paceEndDate && (
+              <p className="text-xs text-bible-gold-muted italic">
+                At this pace, you&apos;re likely to finish by{" "}
+                <span className="text-bible-gold font-medium not-italic">{paceEndDate}</span>
+              </p>
+            )}
+          </div>
+        )}
 
         {hydrated && (
           <ProgressBar completed={completedCount} total={totalDays} pct={pct} />

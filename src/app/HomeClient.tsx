@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS, CORE_BOOKS } from "@/lib/bibleData";
 import { getTotalDays } from "@/lib/planGenerator";
+import { addDays, formatDate, today } from "@/lib/dateUtils";
 
 type Unit = "days" | "months" | "years";
 
@@ -37,7 +38,8 @@ function loadSavedConfig(): { n: number; unit: Unit } | null {
 
 export function savePlanConfig(n: number, unit: Unit) {
   try {
-    localStorage.setItem(PLAN_CONFIG_KEY, JSON.stringify({ n, unit }));
+    const startDate = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+    localStorage.setItem(PLAN_CONFIG_KEY, JSON.stringify({ n, unit, startDate }));
   } catch { /* ignore */ }
 }
 
@@ -90,7 +92,7 @@ export default function HomeClient() {
 
   const totalDays = getTotalDays(n, unit);
 
-  const { chaptersPerDay, minPerDay } = useMemo(() => {
+  const { chaptersPerDay, minPerDay, endDate } = useMemo(() => {
     const cpd = TOTAL_CORE_CHAPTERS / totalDays;
     return {
       chaptersPerDay:
@@ -99,6 +101,7 @@ export default function HomeClient() {
         cpd * 3 >= 60
           ? `~${((cpd * 3) / 60).toFixed(1)} hrs`
           : `~${Math.round(cpd * 3)} min`,
+      endDate: formatDate(addDays(today(), totalDays)),
     };
   }, [totalDays]);
 
@@ -209,6 +212,10 @@ export default function HomeClient() {
           {unit !== "days" && (
             <p className="text-xs text-bible-dim mt-1">{totalDays} days total</p>
           )}
+          <p className="text-xs text-bible-dim mt-1">
+            Finishes by{" "}
+            <span className="text-bible-muted font-medium">{endDate}</span>
+          </p>
         </div>
 
         {/* CTA */}
