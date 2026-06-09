@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 import { generatePlan, getTotalDays, formatPlanLabel } from "@/lib/planGenerator";
 import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS } from "@/lib/bibleData";
 import { useProgress } from "@/hooks/useProgress";
@@ -19,6 +19,7 @@ export default function PlanClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>("plan");
+  const [shareCopied, setShareCopied] = useState(false);
 
   const n = parseInt(searchParams.get("n") ?? "90", 10);
   const unit = (searchParams.get("unit") ?? "days") as "days" | "months" | "years";
@@ -63,6 +64,27 @@ export default function PlanClient() {
 
   const firstUnreadRef = useRef<HTMLDivElement | null>(null);
 
+  const handleShare = useCallback(async () => {
+    const url = `${window.location.origin}/plan?n=${validN}&unit=${unit}`;
+    const shareData = {
+      title: "Bible Reading Plan",
+      text: `I'm reading the Core Bible in ${planLabel}! ${pct > 0 ? `${pct}% complete so far. ` : ""}Follow the same plan:`,
+      url,
+    };
+    try {
+      if (navigator.share && navigator.canShare?.(shareData)) {
+        await navigator.share(shareData);
+        return;
+      }
+    } catch { /* user cancelled or not supported */ }
+    // Clipboard fallback
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+    } catch { /* ignore */ }
+  }, [validN, unit, planLabel, pct]);
+
   const scrollToNextUnread = () => {
     firstUnreadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
@@ -79,10 +101,10 @@ export default function PlanClient() {
 
   return (
     <div className="min-h-screen max-w-2xl mx-auto">
-      {/* Back */}
-      <div className="px-4 pt-5 pb-1">
+      {/* Back + Share */}
+      <div className="px-4 pt-5 pb-1 flex items-center justify-between">
         <button
-          onClick={() => router.push(`/?n=${validN}&unit=${unit}`)}
+          onClick={() => router.push(`/?adjust=1&n=${validN}&unit=${unit}`)}
           className="flex items-center gap-1.5 text-xs text-bible-dim hover:text-bible-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded tracking-widest uppercase"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -95,6 +117,31 @@ export default function PlanClient() {
             />
           </svg>
           Adjust Plan
+        </button>
+
+        <button
+          onClick={handleShare}
+          aria-label="Share plan"
+          className="flex items-center gap-1.5 text-xs text-bible-dim hover:text-bible-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded tracking-widest uppercase"
+        >
+          {shareCopied ? (
+            <>
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <path d="M1 6.5L4.5 10L12 2" stroke="#4a8a60" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-bible-success">Copied!</span>
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <circle cx="11" cy="2.5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+                <circle cx="11" cy="11.5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+                <circle cx="3" cy="7" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+                <path d="M4.3 6.2L9.7 3.3M4.3 7.8L9.7 10.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+              </svg>
+              Share
+            </>
+          )}
         </button>
       </div>
 
