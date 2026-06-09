@@ -6,12 +6,14 @@ import { generatePlan, getTotalDays, formatPlanLabel } from "@/lib/planGenerator
 import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS } from "@/lib/bibleData";
 import { useProgress } from "@/hooks/useProgress";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useInstallPrompt } from "@/hooks/useInstallPrompt";
 import ProgressBar from "@/components/ProgressBar";
 import SectionHeader from "@/components/SectionHeader";
 import DayItem from "@/components/DayItem";
 import MonthGroup from "@/components/MonthGroup";
 import BooksSkipped from "@/components/BooksSkipped";
 import NotificationBanner from "@/components/NotificationBanner";
+import InstallBanner from "@/components/InstallBanner";
 
 type Tab = "plan" | "skipped";
 
@@ -61,6 +63,13 @@ export default function PlanClient() {
   const pct = totalDays > 0 ? Math.round((completedCount / totalDays) * 100) : 0;
 
   const { showBanner, requestPermission, dismiss } = useNotifications(pct);
+  const {
+    showBanner: showInstallBanner,
+    isIOS,
+    canInstall,
+    install,
+    dismiss: dismissInstall,
+  } = useInstallPrompt();
 
   const firstUnreadRef = useRef<HTMLDivElement | null>(null);
 
@@ -166,6 +175,16 @@ export default function PlanClient() {
           <ProgressBar completed={completedCount} total={totalDays} pct={pct} />
         )}
       </header>
+
+      {/* Install banner */}
+      {showInstallBanner && (
+        <InstallBanner
+          isIOS={isIOS}
+          canInstall={canInstall}
+          onInstall={install}
+          onDismiss={dismissInstall}
+        />
+      )}
 
       {/* Notification banner */}
       {showBanner && (
