@@ -3,14 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 
 export function useProgress(planKey: string) {
-  const storageKey = `bible-plan-readings-${planKey}`;
-  const [completedReadings, setCompletedReadings] = useState<Set<string>>(new Set());
+  const storageKey = `bible-plan-chapters-${planKey}`;
+  const [completedChapters, setCompletedChapters] = useState<Set<string>>(new Set());
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      if (raw) setCompletedReadings(new Set(JSON.parse(raw) as string[]));
+      if (raw) setCompletedChapters(new Set(JSON.parse(raw) as string[]));
     } catch {
       // ignore
     }
@@ -28,10 +28,10 @@ export function useProgress(planKey: string) {
     [storageKey]
   );
 
-  const toggleReading = useCallback(
-    (dayNum: number, readingIdx: number) => {
-      setCompletedReadings((prev) => {
-        const key = `${dayNum}-${readingIdx}`;
+  const toggleChapter = useCallback(
+    (dayNum: number, chapterIdx: number) => {
+      setCompletedChapters((prev) => {
+        const key = `${dayNum}-${chapterIdx}`;
         const next = new Set(prev);
         if (next.has(key)) next.delete(key);
         else next.add(key);
@@ -42,12 +42,29 @@ export function useProgress(planKey: string) {
     [persist]
   );
 
-  // Marks all readings in a day as complete or clears them all
-  const setDayComplete = useCallback(
-    (dayNum: number, totalReadings: number, complete: boolean) => {
-      setCompletedReadings((prev) => {
+  // Mark/unmark all chapters in a reading group
+  const setGroupComplete = useCallback(
+    (dayNum: number, startIdx: number, count: number, complete: boolean) => {
+      setCompletedChapters((prev) => {
         const next = new Set(prev);
-        for (let i = 0; i < totalReadings; i++) {
+        for (let i = startIdx; i < startIdx + count; i++) {
+          const key = `${dayNum}-${i}`;
+          if (complete) next.add(key);
+          else next.delete(key);
+        }
+        persist(next);
+        return next;
+      });
+    },
+    [persist]
+  );
+
+  // Mark/unmark all chapters for an entire day
+  const setDayComplete = useCallback(
+    (dayNum: number, totalChapters: number, complete: boolean) => {
+      setCompletedChapters((prev) => {
+        const next = new Set(prev);
+        for (let i = 0; i < totalChapters; i++) {
           const key = `${dayNum}-${i}`;
           if (complete) next.add(key);
           else next.delete(key);
@@ -60,7 +77,7 @@ export function useProgress(planKey: string) {
   );
 
   const reset = useCallback(() => {
-    setCompletedReadings(new Set());
+    setCompletedChapters(new Set());
     try {
       localStorage.removeItem(storageKey);
     } catch {
@@ -68,5 +85,12 @@ export function useProgress(planKey: string) {
     }
   }, [storageKey]);
 
-  return { completedReadings, toggleReading, setDayComplete, reset, hydrated };
+  return {
+    completedChapters,
+    toggleChapter,
+    setGroupComplete,
+    setDayComplete,
+    reset,
+    hydrated,
+  };
 }
