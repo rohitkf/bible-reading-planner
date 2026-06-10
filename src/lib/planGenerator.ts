@@ -63,7 +63,7 @@ function getTheme(bookName: string, chapter: number): string {
   return seg?.theme ?? bookName;
 }
 
-function buildTitle(chapters: ChapterRef[]): string {
+function buildTitle(chapters: ChapterRef[], forceSecondTestament = false): string {
   if (chapters.length === 0) return "Rest";
 
   // Track themes in order of first appearance, with counts
@@ -77,7 +77,21 @@ function buildTitle(chapters: ChapterRef[]): string {
 
   if (order.length === 1) return order[0];
 
-  // Include second theme only if it covers ≥20% of the day's chapters
+  // In parallel mode, always surface the top NT theme even if it's a minority
+  if (forceSecondTestament) {
+    const otThemes = order.filter((t) =>
+      chapters.some((c) => c.testament === "OT" && getTheme(c.bookName, c.chapter) === t)
+    );
+    const ntThemes = order.filter((t) =>
+      chapters.some((c) => c.testament === "NT" && getTheme(c.bookName, c.chapter) === t)
+    );
+    const otTop = otThemes[0];
+    const ntTop = ntThemes[0];
+    if (otTop && ntTop) return `${otTop} · ${ntTop}`;
+    return otTop ?? ntTop ?? order[0];
+  }
+
+  // Sequential: include second theme only if it covers ≥20% of the day's chapters
   const threshold = chapters.length * 0.2;
   const second = order.find((t, i) => i > 0 && (counts.get(t) ?? 0) >= threshold);
   if (second) {
@@ -197,7 +211,7 @@ function generateParallelPlan(totalDays: number): ReadingPlan {
     days.push({
       day,
       chapters: dayChapters,
-      title: buildTitle(dayChapters),
+      title: buildTitle(dayChapters, true),
       chapterCount: dayChapters.length,
       readingGroups: buildReadingGroups(dayChapters),
     });

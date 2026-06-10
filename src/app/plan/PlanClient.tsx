@@ -188,7 +188,7 @@ export default function PlanClient() {
       {/* Header */}
       <header className="px-4 pt-4 pb-5 border-b border-bible-border">
         <p className="text-[10px] tracking-widest2 text-bible-dim uppercase mb-2">
-          {planLabel} Reading Plan
+          {planLabel} {parallel ? "Parallel " : ""}Reading Plan
         </p>
         <h1 className="text-3xl sm:text-4xl font-serif font-semibold text-bible-gold-light leading-tight mb-2">
           Core Bible in {planLabel}
@@ -196,7 +196,7 @@ export default function PlanClient() {
         <p className="text-xs text-bible-muted tracking-wide">
           {TOTAL_CORE_CHAPTERS} chapters
           <span className="mx-2">·</span>
-          Narrative &amp; Theology
+          {parallel ? "OT & NT together daily" : "Narrative & Theology"}
           <span className="mx-2">·</span>
           Skips {TOTAL_SKIPPED_CHAPTERS} ch of poetry &amp; census
         </p>
