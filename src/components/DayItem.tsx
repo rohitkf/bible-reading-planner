@@ -168,7 +168,7 @@ export default function DayItem({
 
   return (
     <div
-      className={`border-b border-bible-border transition-opacity relative ${
+      className={`border-b border-bible-border transition-opacity relative bg-bible-bg ${
         allDone ? "opacity-55" : ""
       }`}
     >

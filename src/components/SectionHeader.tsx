@@ -13,7 +13,7 @@ export default function SectionHeader({ section }: SectionHeaderProps) {
     : `${section.avgHoursPerDay} hrs`;
 
   return (
-    <div className="px-4 pt-6 pb-2">
+    <div className="px-4 pt-6 pb-2 bg-bible-bg">
       <div className="text-[10px] tracking-widest text-bible-dim uppercase mb-1">
         Days {section.startDay}–{section.endDay}
         <span className="mx-2">·</span>

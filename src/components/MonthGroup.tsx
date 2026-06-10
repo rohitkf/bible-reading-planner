@@ -36,7 +36,7 @@ export default function MonthGroup({
   const allDone = completedDays === days.length;
 
   return (
-    <div className="border-b border-bible-border">
+    <div className="border-b border-bible-border bg-bible-bg">
       <button
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-bible-card transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold"

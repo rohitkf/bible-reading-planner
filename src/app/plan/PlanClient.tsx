@@ -142,7 +142,7 @@ export default function PlanClient() {
   const isLongPlan = totalDays > 60;
 
   return (
-    <div className="min-h-screen max-w-2xl mx-auto bg-bible-bg/92">
+    <div className="min-h-screen max-w-2xl mx-auto">
       {/* Back + Share */}
       <div className="px-4 pt-5 pb-1 flex items-center justify-between">
         <button
@@ -188,7 +188,7 @@ export default function PlanClient() {
       </div>
 
       {/* Header */}
-      <header className="px-4 pt-4 pb-5 border-b border-bible-border">
+      <header className="px-4 pt-4 pb-5 border-b border-bible-border bg-bible-bg">
         <p className="text-[10px] tracking-widest2 text-bible-dim uppercase mb-2">
           {planLabel} {parallel ? "Parallel " : ""}{skipPoetry ? "" : "Full Bible "}Reading Plan
         </p>
