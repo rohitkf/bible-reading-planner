@@ -1,4 +1,4 @@
-const CACHE_NAME = "bible-plan-v1";
+const CACHE_NAME = "bible-plan-v2";
 
 // App shell — pages and key assets to pre-cache on install
 const APP_SHELL = ["/", "/plan"];
