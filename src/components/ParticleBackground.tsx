@@ -15,11 +15,11 @@ function mkFog(w: number, h: number): Fog {
     x: Math.random() * w,
     y: Math.random() * h,
     r: Math.random() * 220 + 140,
-    vx: (Math.random() - 0.5) * 0.12,
-    vy: (Math.random() - 0.5) * 0.08,
+    vx: (Math.random() - 0.5) * 0.03,
+    vy: (Math.random() - 0.5) * 0.02,
     o: Math.random() * 0.07 + 0.03,
     oDir: Math.random() < 0.5 ? 1 : -1,
-    oSpeed: Math.random() * 0.0004 + 0.0001,
+    oSpeed: Math.random() * 0.0002 + 0.00005,
   };
 }
 
@@ -40,15 +40,16 @@ function mkDust(w: number, h: number, atBottom = false, ember = false): Dust {
     x: Math.random() * w,
     y: atBottom ? h + r * 2 + Math.random() * 30 : Math.random() * h,
     r,
-    vy: -(Math.random() * 0.2 + 0.07),
-    vx: (Math.random() - 0.5) * 0.06,
+    // slow drift in any direction — floating-in-space feel
+    vy: (Math.random() - 0.5) * 0.05,
+    vx: (Math.random() - 0.5) * 0.04,
     a: Math.random() * Math.PI * 2,
-    da: (Math.random() - 0.5) * 0.007 + 0.002,
-    swing: Math.random() * 0.32 + 0.08,
+    da: (Math.random() - 0.5) * 0.003 + 0.0005,
+    swing: Math.random() * 0.06 + 0.015,
     o: Math.random() * oMax,
     oMin: ember ? 0.25 : 0.12, oMax,
     oDir: 1,
-    oSpeed: Math.random() * 0.0012 + 0.0004,
+    oSpeed: Math.random() * 0.0006 + 0.0002,
     ember,
   };
 }
@@ -154,7 +155,8 @@ export default function ParticleBackground() {
 
         if (p.x < -6) p.x = W + 6;
         if (p.x > W + 6) p.x = -6;
-        if (p.y < -6) Object.assign(p, mkDust(W, H, true, p.ember));
+        if (p.y < -6) p.y = H + 6;
+        if (p.y > H + 6) p.y = -6;
       }
     };
 
