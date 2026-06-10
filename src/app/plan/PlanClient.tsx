@@ -77,8 +77,8 @@ export default function PlanClient() {
 
   // Original end date: startDate + totalDays
   const originalEndDate = useMemo(() => {
-    if (!startDate) return formatDate(addDays(today(), totalDays));
-    return formatDate(addDays(new Date(startDate + "T00:00:00"), totalDays));
+    if (!startDate) return formatDate(addDays(today(), totalDays - 1));
+    return formatDate(addDays(new Date(startDate + "T00:00:00"), totalDays - 1));
   }, [startDate, totalDays]);
 
   // Pace-adjusted end date: only shown when meaningfully ahead of schedule
@@ -204,12 +204,12 @@ export default function PlanClient() {
         {hydrated && (
           <div className="mt-3 space-y-1">
             <p className="text-xs text-bible-dim">
-              Ends by{" "}
+              Ends on{" "}
               <span className="text-bible-muted font-medium">{originalEndDate}</span>
             </p>
             {paceEndDate && (
               <p className="text-xs text-bible-gold-muted italic">
-                At this pace, you&apos;re likely to finish by{" "}
+                At this pace, you&apos;re likely to finish on{" "}
                 <span className="text-bible-gold font-medium not-italic">{paceEndDate}</span>
               </p>
             )}
