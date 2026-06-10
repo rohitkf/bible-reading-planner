@@ -7,6 +7,7 @@ import type { DayReading } from "@/lib/planGenerator";
 interface MonthGroupProps {
   monthNumber: number;
   days: DayReading[];
+  startDate: string | null;
   completedChapters: Set<string>;
   onToggleChapter: (day: number, chapterIdx: number) => void;
   onToggleGroup: (day: number, startIdx: number, count: number, complete: boolean) => void;
@@ -17,6 +18,7 @@ interface MonthGroupProps {
 export default function MonthGroup({
   monthNumber,
   days,
+  startDate,
   completedChapters,
   onToggleChapter,
   onToggleGroup,
@@ -82,6 +84,7 @@ export default function MonthGroup({
             <DayItem
               key={day.day}
               day={day}
+              startDate={startDate}
               completedChapters={completedChapters}
               onToggleChapter={onToggleChapter}
               onToggleGroup={onToggleGroup}

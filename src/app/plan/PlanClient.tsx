@@ -291,6 +291,7 @@ export default function PlanClient() {
                       key={group.monthNum}
                       monthNumber={group.monthNum}
                       days={group.days}
+                      startDate={startDate}
                       completedChapters={completedChapters}
                       onToggleChapter={toggleChapter}
                       onToggleGroup={setGroupComplete}
@@ -317,6 +318,7 @@ export default function PlanClient() {
                       >
                         <DayItem
                           day={day}
+                          startDate={startDate}
                           completedChapters={completedChapters}
                           onToggleChapter={toggleChapter}
                           onToggleGroup={setGroupComplete}
