@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS, CORE_BOOKS } from "@/lib/bibleData";
+import { TOTAL_CORE_CHAPTERS, TOTAL_FULL_CHAPTERS, TOTAL_SKIPPED_CHAPTERS, CORE_BOOKS, FULL_BOOKS } from "@/lib/bibleData";
 import { getTotalDays } from "@/lib/planGenerator";
 import { addDays, formatDate, today } from "@/lib/dateUtils";
 
@@ -22,24 +22,28 @@ const UNIT_LABELS: Record<Unit, string> = {
 
 const PLAN_CONFIG_KEY = "bible-plan-config";
 
-function loadSavedConfig(): { n: number; unit: Unit; parallel: boolean } | null {
+function loadSavedConfig(): { n: number; unit: Unit; parallel: boolean; skipPoetry: boolean } | null {
   try {
     const raw = localStorage.getItem(PLAN_CONFIG_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { n: number; unit: Unit; parallel?: boolean };
+    const parsed = JSON.parse(raw) as { n: number; unit: Unit; parallel?: boolean; skipPoetry?: boolean };
     if (
       typeof parsed.n === "number" &&
       ["days", "months", "years"].includes(parsed.unit)
     )
-      return { ...parsed, parallel: parsed.parallel ?? false };
+      return {
+        ...parsed,
+        parallel: parsed.parallel ?? false,
+        skipPoetry: parsed.skipPoetry ?? true,
+      };
   } catch { /* ignore */ }
   return null;
 }
 
-export function savePlanConfig(n: number, unit: Unit, parallel: boolean) {
+export function savePlanConfig(n: number, unit: Unit, parallel: boolean, skipPoetry: boolean) {
   try {
     const startDate = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
-    localStorage.setItem(PLAN_CONFIG_KEY, JSON.stringify({ n, unit, parallel, startDate }));
+    localStorage.setItem(PLAN_CONFIG_KEY, JSON.stringify({ n, unit, parallel, skipPoetry, startDate }));
   } catch { /* ignore */ }
 }
 
@@ -47,10 +51,11 @@ export default function HomeClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // When coming back via "Adjust Plan", URL carries n/unit/parallel to pre-fill the form
+  // When coming back via "Adjust Plan", URL carries n/unit/parallel/skipPoetry to pre-fill the form
   const urlN = parseInt(searchParams.get("n") ?? "", 10);
   const urlUnit = searchParams.get("unit") as Unit | null;
   const urlParallel = searchParams.get("parallel") === "1";
+  const urlSkipPoetry = searchParams.get("skipPoetry") !== "0"; // default true
   const isAdjusting = searchParams.get("adjust") === "1";
 
   const initialUnit: Unit =
@@ -62,6 +67,7 @@ export default function HomeClient() {
   const [unit, setUnit] = useState<Unit>(initialUnit);
   const [n, setN] = useState<number>(initialN);
   const [parallel, setParallel] = useState<boolean>(urlParallel);
+  const [skipPoetry, setSkipPoetry] = useState<boolean>(urlSkipPoetry);
   const [ready, setReady] = useState(false);
 
   // On first mount: if a plan is saved and user didn't intentionally navigate back, jump straight to it
@@ -73,7 +79,8 @@ export default function HomeClient() {
     const saved = loadSavedConfig();
     if (saved) {
       const parallelParam = saved.parallel ? "&parallel=1" : "";
-      router.replace(`/plan?n=${saved.n}&unit=${saved.unit}${parallelParam}`);
+      const skipPoetryParam = saved.skipPoetry ? "" : "&skipPoetry=0";
+      router.replace(`/plan?n=${saved.n}&unit=${saved.unit}${parallelParam}${skipPoetryParam}`);
     } else {
       setReady(true);
     }
@@ -93,9 +100,11 @@ export default function HomeClient() {
   const decrement = () => setN((v) => clamp(v - 1));
 
   const totalDays = getTotalDays(n, unit);
+  const totalChapters = skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS;
+  const totalBooks = skipPoetry ? CORE_BOOKS.length : FULL_BOOKS.length;
 
   const { chaptersPerDay, minPerDay, endDate } = useMemo(() => {
-    const cpd = TOTAL_CORE_CHAPTERS / totalDays;
+    const cpd = totalChapters / totalDays;
     return {
       chaptersPerDay:
         cpd < 1 ? cpd.toFixed(2) : cpd < 10 ? cpd.toFixed(1) : Math.round(cpd),
@@ -105,12 +114,13 @@ export default function HomeClient() {
           : `~${Math.round(cpd * 3)} min`,
       endDate: formatDate(addDays(today(), totalDays - 1)),
     };
-  }, [totalDays]);
+  }, [totalDays, totalChapters]);
 
   const handleStart = () => {
-    savePlanConfig(n, unit, parallel);
+    savePlanConfig(n, unit, parallel, skipPoetry);
     const parallelParam = parallel ? "&parallel=1" : "";
-    router.push(`/plan?n=${n}&unit=${unit}${parallelParam}`);
+    const skipPoetryParam = skipPoetry ? "" : "&skipPoetry=0";
+    router.push(`/plan?n=${n}&unit=${unit}${parallelParam}${skipPoetryParam}`);
   };
 
   // Blank screen while checking for saved plan to avoid flash
@@ -124,17 +134,23 @@ export default function HomeClient() {
           Scripture · Narrative · Theology
         </p>
         <h1 className="text-4xl sm:text-5xl font-serif font-semibold text-bible-gold-light leading-tight mb-4">
-          Core Bible
+          {skipPoetry ? "Core" : "Full"} Bible
         </h1>
         <p className="text-sm text-bible-muted leading-relaxed">
-          Read the narrative & theological heart of Scripture at your own pace.
+          {skipPoetry
+            ? "Read the narrative & theological heart of Scripture at your own pace."
+            : "Read all 66 books of Scripture from beginning to end."}
         </p>
         <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-bible-dim tracking-wide">
-          <span>{TOTAL_CORE_CHAPTERS} chapters</span>
+          <span>{totalChapters} chapters</span>
           <span>·</span>
-          <span>{CORE_BOOKS.length} books</span>
-          <span>·</span>
-          <span>Skips {TOTAL_SKIPPED_CHAPTERS} ch of poetry &amp; census</span>
+          <span>{totalBooks} books</span>
+          {skipPoetry && (
+            <>
+              <span>·</span>
+              <span>Skips {TOTAL_SKIPPED_CHAPTERS} ch of poetry &amp; census</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -206,7 +222,6 @@ export default function HomeClient() {
           onClick={() => setParallel((p) => !p)}
           className="w-full flex items-center gap-3 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded group"
         >
-          {/* Custom checkbox */}
           <div
             className="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all"
             style={{
@@ -232,6 +247,40 @@ export default function HomeClient() {
             </span>
             <p className="text-[11px] text-bible-dim mt-0.5">
               Each day includes both OT and NT chapters
+            </p>
+          </div>
+        </button>
+
+        {/* Skip poetry/census toggle */}
+        <button
+          onClick={() => setSkipPoetry((s) => !s)}
+          className="w-full flex items-center gap-3 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded group"
+        >
+          <div
+            className="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all"
+            style={{
+              borderColor: skipPoetry ? "#4a8a60" : "#534e42",
+              backgroundColor: skipPoetry ? "#4a8a60" : "transparent",
+            }}
+          >
+            {skipPoetry && (
+              <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                <path
+                  d="M1 3.5L3.5 6L8 1"
+                  stroke="white"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </div>
+          <div className="text-left">
+            <span className={`text-sm transition-colors ${skipPoetry ? "text-bible-text" : "text-bible-muted group-hover:text-bible-text"}`}>
+              Skip poetry &amp; census books
+            </span>
+            <p className="text-[11px] text-bible-dim mt-0.5">
+              Removes Leviticus, Numbers, Chronicles, Psalms &amp; more
             </p>
           </div>
         </button>

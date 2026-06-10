@@ -1,7 +1,9 @@
 import {
   CORE_BOOKS,
+  FULL_BOOKS,
   THEME_SEGMENTS,
   TOTAL_CORE_CHAPTERS,
+  TOTAL_FULL_CHAPTERS,
   type Testament,
 } from "./bibleData";
 
@@ -43,9 +45,10 @@ export interface ReadingPlan {
 
 const MINS_PER_CHAPTER = 3;
 
-function buildChapterList(): ChapterRef[] {
+function buildChapterList(skipPoetry: boolean): ChapterRef[] {
+  const books = skipPoetry ? CORE_BOOKS : FULL_BOOKS;
   const refs: ChapterRef[] = [];
-  for (const book of CORE_BOOKS) {
+  for (const book of books) {
     for (let ch = 1; ch <= book.chapters; ch++) {
       refs.push({ bookName: book.name, chapter: ch, testament: book.testament });
     }
@@ -126,11 +129,11 @@ function toHours(chaptersPerDay: number): number {
   return Math.round((chaptersPerDay * MINS_PER_CHAPTER) / 60 * 10) / 10;
 }
 
-export function generatePlan(totalDays: number, parallel = false): ReadingPlan {
-  if (parallel) return generateParallelPlan(totalDays);
+export function generatePlan(totalDays: number, parallel = false, skipPoetry = true): ReadingPlan {
+  if (parallel) return generateParallelPlan(totalDays, skipPoetry);
 
-  const all = buildChapterList();
-  const total = TOTAL_CORE_CHAPTERS; // 898
+  const all = buildChapterList(skipPoetry);
+  const total = skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS;
   const base = Math.floor(total / totalDays);
   const extra = total % totalDays;
 
@@ -186,8 +189,8 @@ export function generatePlan(totalDays: number, parallel = false): ReadingPlan {
   return { totalDays, totalChapters: total, sections };
 }
 
-function generateParallelPlan(totalDays: number): ReadingPlan {
-  const all = buildChapterList();
+function generateParallelPlan(totalDays: number, skipPoetry: boolean): ReadingPlan {
+  const all = buildChapterList(skipPoetry);
   const otChapters = all.filter((c) => c.testament === "OT");
   const ntChapters = all.filter((c) => c.testament === "NT");
 
@@ -217,10 +220,11 @@ function generateParallelPlan(totalDays: number): ReadingPlan {
     });
   }
 
+  const total = skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS;
   const avg = avgChapters(days);
   return {
     totalDays,
-    totalChapters: TOTAL_CORE_CHAPTERS,
+    totalChapters: total,
     sections: [{
       testament: "OT",
       label: "Old & New Testament",
