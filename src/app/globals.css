@@ -12,6 +12,7 @@ html {
 }
 
 body {
+  background: radial-gradient(ellipse 90% 55% at 50% 30%, #191710 0%, #11100c 65%);
   background-color: #11100c;
   color: #ddd5b8;
   -webkit-font-smoothing: antialiased;
