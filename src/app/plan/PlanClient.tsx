@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { generatePlan, getTotalDays, formatPlanLabel } from "@/lib/planGenerator";
-import { TOTAL_CORE_CHAPTERS, TOTAL_SKIPPED_CHAPTERS } from "@/lib/bibleData";
+import { TOTAL_CORE_CHAPTERS, TOTAL_FULL_CHAPTERS, TOTAL_SKIPPED_CHAPTERS } from "@/lib/bibleData";
 import { addDays, formatDate, today, daysElapsedSince } from "@/lib/dateUtils";
 import { useProgress } from "@/hooks/useProgress";
 import { useNotifications } from "@/hooks/useNotifications";
@@ -27,13 +27,14 @@ export default function PlanClient() {
   const n = parseInt(searchParams.get("n") ?? "90", 10);
   const unit = (searchParams.get("unit") ?? "days") as "days" | "months" | "years";
   const parallel = searchParams.get("parallel") === "1";
+  const skipPoetry = searchParams.get("skipPoetry") !== "0";
 
   const validN = isNaN(n) || n < 1 ? 90 : n;
   const totalDays = getTotalDays(validN, unit);
   const planLabel = formatPlanLabel(validN, unit);
-  const planKey = `${validN}-${unit}${parallel ? "-parallel" : ""}`;
+  const planKey = `${validN}-${unit}${parallel ? "-parallel" : ""}${skipPoetry ? "" : "-full"}`;
 
-  const plan = useMemo(() => generatePlan(totalDays, parallel), [totalDays, parallel]);
+  const plan = useMemo(() => generatePlan(totalDays, parallel, skipPoetry), [totalDays, parallel, skipPoetry]);
 
   const {
     completedChapters,
@@ -105,10 +106,11 @@ export default function PlanClient() {
   const firstUnreadRef = useRef<HTMLDivElement | null>(null);
 
   const handleShare = useCallback(async () => {
-    const url = `${window.location.origin}/plan?n=${validN}&unit=${unit}`;
+    const skipPoetryParam = skipPoetry ? "" : "&skipPoetry=0";
+    const url = `${window.location.origin}/plan?n=${validN}&unit=${unit}${parallel ? "&parallel=1" : ""}${skipPoetryParam}`;
     const shareData = {
       title: "Bible Reading Plan",
-      text: `I'm reading the Core Bible in ${planLabel}! ${pct > 0 ? `${pct}% complete so far. ` : ""}Follow the same plan:`,
+      text: `I'm reading the ${skipPoetry ? "Core" : "Full"} Bible in ${planLabel}! ${pct > 0 ? `${pct}% complete so far. ` : ""}Follow the same plan:`,
       url,
     };
     try {
@@ -123,13 +125,13 @@ export default function PlanClient() {
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2500);
     } catch { /* ignore */ }
-  }, [validN, unit, planLabel, pct]);
+  }, [validN, unit, parallel, skipPoetry, planLabel, pct]);
 
   const scrollToNextUnread = () => {
     firstUnreadRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const avgCpd = TOTAL_CORE_CHAPTERS / totalDays;
+  const avgCpd = (skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS) / totalDays;
   const avgCpdStr =
     avgCpd < 1
       ? avgCpd.toFixed(2)
@@ -144,7 +146,7 @@ export default function PlanClient() {
       {/* Back + Share */}
       <div className="px-4 pt-5 pb-1 flex items-center justify-between">
         <button
-          onClick={() => router.push(`/?adjust=1&n=${validN}&unit=${unit}${parallel ? "&parallel=1" : ""}`)}
+          onClick={() => router.push(`/?adjust=1&n=${validN}&unit=${unit}${parallel ? "&parallel=1" : ""}${skipPoetry ? "" : "&skipPoetry=0"}`)}
           className="flex items-center gap-1.5 text-xs text-bible-dim hover:text-bible-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded tracking-widest uppercase"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -188,17 +190,21 @@ export default function PlanClient() {
       {/* Header */}
       <header className="px-4 pt-4 pb-5 border-b border-bible-border">
         <p className="text-[10px] tracking-widest2 text-bible-dim uppercase mb-2">
-          {planLabel} Reading Plan
+          {planLabel} {parallel ? "Parallel " : ""}{skipPoetry ? "" : "Full Bible "}Reading Plan
         </p>
         <h1 className="text-3xl sm:text-4xl font-serif font-semibold text-bible-gold-light leading-tight mb-2">
-          Core Bible in {planLabel}
+          {skipPoetry ? "Core" : "Full"} Bible in {planLabel}
         </h1>
         <p className="text-xs text-bible-muted tracking-wide">
-          {TOTAL_CORE_CHAPTERS} chapters
+          {skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS} chapters
           <span className="mx-2">·</span>
-          Narrative &amp; Theology
-          <span className="mx-2">·</span>
-          Skips {TOTAL_SKIPPED_CHAPTERS} ch of poetry &amp; census
+          {parallel ? "OT & NT together daily" : skipPoetry ? "Narrative & Theology" : "Complete Scripture"}
+          {skipPoetry && (
+            <>
+              <span className="mx-2">·</span>
+              Skips {TOTAL_SKIPPED_CHAPTERS} ch of poetry &amp; census
+            </>
+          )}
         </p>
         <p className="text-xs text-bible-dim mt-1">~{avgCpdStr} chapters/day</p>
 
@@ -335,7 +341,7 @@ export default function PlanClient() {
         </div>
       )}
 
-      {activeTab === "skipped" && <BooksSkipped totalDays={totalDays} />}
+      {activeTab === "skipped" && <BooksSkipped totalDays={totalDays} skipPoetry={skipPoetry} />}
 
       {/* Jump to next unread */}
       {activeTab === "plan" &&
@@ -359,10 +365,12 @@ export default function PlanClient() {
         totalDays > 0 && (
           <div className="px-4 py-8 text-center">
             <div className="text-2xl font-serif italic text-bible-gold mb-2">
-              You&apos;ve finished the Core Bible.
+              You&apos;ve finished the {skipPoetry ? "Core" : "Full"} Bible.
             </div>
             <p className="text-sm text-bible-muted">
-              Now pick up Psalms — one chapter a day, 5 months.
+              {skipPoetry
+                ? "Now pick up Psalms — one chapter a day, 5 months."
+                : "An extraordinary achievement. Consider starting again, slower."}
             </p>
           </div>
         )}

@@ -1,7 +1,9 @@
 import {
   CORE_BOOKS,
+  FULL_BOOKS,
   THEME_SEGMENTS,
   TOTAL_CORE_CHAPTERS,
+  TOTAL_FULL_CHAPTERS,
   type Testament,
 } from "./bibleData";
 
@@ -43,9 +45,10 @@ export interface ReadingPlan {
 
 const MINS_PER_CHAPTER = 3;
 
-function buildChapterList(): ChapterRef[] {
+function buildChapterList(skipPoetry: boolean): ChapterRef[] {
+  const books = skipPoetry ? CORE_BOOKS : FULL_BOOKS;
   const refs: ChapterRef[] = [];
-  for (const book of CORE_BOOKS) {
+  for (const book of books) {
     for (let ch = 1; ch <= book.chapters; ch++) {
       refs.push({ bookName: book.name, chapter: ch, testament: book.testament });
     }
@@ -63,7 +66,7 @@ function getTheme(bookName: string, chapter: number): string {
   return seg?.theme ?? bookName;
 }
 
-function buildTitle(chapters: ChapterRef[]): string {
+function buildTitle(chapters: ChapterRef[], forceSecondTestament = false): string {
   if (chapters.length === 0) return "Rest";
 
   // Track themes in order of first appearance, with counts
@@ -77,7 +80,21 @@ function buildTitle(chapters: ChapterRef[]): string {
 
   if (order.length === 1) return order[0];
 
-  // Include second theme only if it covers ≥20% of the day's chapters
+  // In parallel mode, always surface the top NT theme even if it's a minority
+  if (forceSecondTestament) {
+    const otThemes = order.filter((t) =>
+      chapters.some((c) => c.testament === "OT" && getTheme(c.bookName, c.chapter) === t)
+    );
+    const ntThemes = order.filter((t) =>
+      chapters.some((c) => c.testament === "NT" && getTheme(c.bookName, c.chapter) === t)
+    );
+    const otTop = otThemes[0];
+    const ntTop = ntThemes[0];
+    if (otTop && ntTop) return `${otTop} · ${ntTop}`;
+    return otTop ?? ntTop ?? order[0];
+  }
+
+  // Sequential: include second theme only if it covers ≥20% of the day's chapters
   const threshold = chapters.length * 0.2;
   const second = order.find((t, i) => i > 0 && (counts.get(t) ?? 0) >= threshold);
   if (second) {
@@ -112,11 +129,11 @@ function toHours(chaptersPerDay: number): number {
   return Math.round((chaptersPerDay * MINS_PER_CHAPTER) / 60 * 10) / 10;
 }
 
-export function generatePlan(totalDays: number, parallel = false): ReadingPlan {
-  if (parallel) return generateParallelPlan(totalDays);
+export function generatePlan(totalDays: number, parallel = false, skipPoetry = true): ReadingPlan {
+  if (parallel) return generateParallelPlan(totalDays, skipPoetry);
 
-  const all = buildChapterList();
-  const total = TOTAL_CORE_CHAPTERS; // 898
+  const all = buildChapterList(skipPoetry);
+  const total = skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS;
   const base = Math.floor(total / totalDays);
   const extra = total % totalDays;
 
@@ -172,8 +189,8 @@ export function generatePlan(totalDays: number, parallel = false): ReadingPlan {
   return { totalDays, totalChapters: total, sections };
 }
 
-function generateParallelPlan(totalDays: number): ReadingPlan {
-  const all = buildChapterList();
+function generateParallelPlan(totalDays: number, skipPoetry: boolean): ReadingPlan {
+  const all = buildChapterList(skipPoetry);
   const otChapters = all.filter((c) => c.testament === "OT");
   const ntChapters = all.filter((c) => c.testament === "NT");
 
@@ -197,16 +214,17 @@ function generateParallelPlan(totalDays: number): ReadingPlan {
     days.push({
       day,
       chapters: dayChapters,
-      title: buildTitle(dayChapters),
+      title: buildTitle(dayChapters, true),
       chapterCount: dayChapters.length,
       readingGroups: buildReadingGroups(dayChapters),
     });
   }
 
+  const total = skipPoetry ? TOTAL_CORE_CHAPTERS : TOTAL_FULL_CHAPTERS;
   const avg = avgChapters(days);
   return {
     totalDays,
-    totalChapters: TOTAL_CORE_CHAPTERS,
+    totalChapters: total,
     sections: [{
       testament: "OT",
       label: "Old & New Testament",
