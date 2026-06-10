@@ -142,7 +142,7 @@ export default function PlanClient() {
   const isLongPlan = totalDays > 60;
 
   return (
-    <div className="min-h-screen max-w-2xl mx-auto">
+    <div className="min-h-screen max-w-2xl mx-auto bg-bible-bg/92">
       {/* Back + Share */}
       <div className="px-4 pt-5 pb-1 flex items-center justify-between">
         <button
