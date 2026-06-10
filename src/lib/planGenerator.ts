@@ -112,7 +112,9 @@ function toHours(chaptersPerDay: number): number {
   return Math.round((chaptersPerDay * MINS_PER_CHAPTER) / 60 * 10) / 10;
 }
 
-export function generatePlan(totalDays: number): ReadingPlan {
+export function generatePlan(totalDays: number, parallel = false): ReadingPlan {
+  if (parallel) return generateParallelPlan(totalDays);
+
   const all = buildChapterList();
   const total = TOTAL_CORE_CHAPTERS; // 898
   const base = Math.floor(total / totalDays);
@@ -168,6 +170,53 @@ export function generatePlan(totalDays: number): ReadingPlan {
   }
 
   return { totalDays, totalChapters: total, sections };
+}
+
+function generateParallelPlan(totalDays: number): ReadingPlan {
+  const all = buildChapterList();
+  const otChapters = all.filter((c) => c.testament === "OT");
+  const ntChapters = all.filter((c) => c.testament === "NT");
+
+  const otBase = Math.floor(otChapters.length / totalDays);
+  const otExtra = otChapters.length % totalDays;
+  const ntBase = Math.floor(ntChapters.length / totalDays);
+  const ntExtra = ntChapters.length % totalDays;
+
+  const days: DayReading[] = [];
+  let otIdx = 0, ntIdx = 0;
+
+  for (let day = 1; day <= totalDays; day++) {
+    const otCount = otBase + (day <= otExtra ? 1 : 0);
+    const ntCount = ntBase + (day <= ntExtra ? 1 : 0);
+    const dayChapters = [
+      ...otChapters.slice(otIdx, otIdx + otCount),
+      ...ntChapters.slice(ntIdx, ntIdx + ntCount),
+    ];
+    otIdx += otCount;
+    ntIdx += ntCount;
+    days.push({
+      day,
+      chapters: dayChapters,
+      title: buildTitle(dayChapters),
+      chapterCount: dayChapters.length,
+      readingGroups: buildReadingGroups(dayChapters),
+    });
+  }
+
+  const avg = avgChapters(days);
+  return {
+    totalDays,
+    totalChapters: TOTAL_CORE_CHAPTERS,
+    sections: [{
+      testament: "OT",
+      label: "Old & New Testament",
+      startDay: 1,
+      endDay: totalDays,
+      avgChaptersPerDay: avg,
+      avgHoursPerDay: toHours(avg),
+      days,
+    }],
+  };
 }
 
 export function getTotalDays(n: number, unit: string): number {

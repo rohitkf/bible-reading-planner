@@ -22,24 +22,24 @@ const UNIT_LABELS: Record<Unit, string> = {
 
 const PLAN_CONFIG_KEY = "bible-plan-config";
 
-function loadSavedConfig(): { n: number; unit: Unit } | null {
+function loadSavedConfig(): { n: number; unit: Unit; parallel: boolean } | null {
   try {
     const raw = localStorage.getItem(PLAN_CONFIG_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { n: number; unit: Unit };
+    const parsed = JSON.parse(raw) as { n: number; unit: Unit; parallel?: boolean };
     if (
       typeof parsed.n === "number" &&
       ["days", "months", "years"].includes(parsed.unit)
     )
-      return parsed;
+      return { ...parsed, parallel: parsed.parallel ?? false };
   } catch { /* ignore */ }
   return null;
 }
 
-export function savePlanConfig(n: number, unit: Unit) {
+export function savePlanConfig(n: number, unit: Unit, parallel: boolean) {
   try {
     const startDate = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
-    localStorage.setItem(PLAN_CONFIG_KEY, JSON.stringify({ n, unit, startDate }));
+    localStorage.setItem(PLAN_CONFIG_KEY, JSON.stringify({ n, unit, parallel, startDate }));
   } catch { /* ignore */ }
 }
 
@@ -47,9 +47,10 @@ export default function HomeClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // When coming back via "Adjust Plan", URL carries n/unit to pre-fill the form
+  // When coming back via "Adjust Plan", URL carries n/unit/parallel to pre-fill the form
   const urlN = parseInt(searchParams.get("n") ?? "", 10);
   const urlUnit = searchParams.get("unit") as Unit | null;
+  const urlParallel = searchParams.get("parallel") === "1";
   const isAdjusting = searchParams.get("adjust") === "1";
 
   const initialUnit: Unit =
@@ -60,6 +61,7 @@ export default function HomeClient() {
 
   const [unit, setUnit] = useState<Unit>(initialUnit);
   const [n, setN] = useState<number>(initialN);
+  const [parallel, setParallel] = useState<boolean>(urlParallel);
   const [ready, setReady] = useState(false);
 
   // On first mount: if a plan is saved and user didn't intentionally navigate back, jump straight to it
@@ -70,8 +72,8 @@ export default function HomeClient() {
     }
     const saved = loadSavedConfig();
     if (saved) {
-      router.replace(`/plan?n=${saved.n}&unit=${saved.unit}`);
-      // Don't set ready — the redirect will happen before the user sees anything
+      const parallelParam = saved.parallel ? "&parallel=1" : "";
+      router.replace(`/plan?n=${saved.n}&unit=${saved.unit}${parallelParam}`);
     } else {
       setReady(true);
     }
@@ -106,8 +108,9 @@ export default function HomeClient() {
   }, [totalDays]);
 
   const handleStart = () => {
-    savePlanConfig(n, unit);
-    router.push(`/plan?n=${n}&unit=${unit}`);
+    savePlanConfig(n, unit, parallel);
+    const parallelParam = parallel ? "&parallel=1" : "";
+    router.push(`/plan?n=${n}&unit=${unit}${parallelParam}`);
   };
 
   // Blank screen while checking for saved plan to avoid flash
@@ -197,6 +200,41 @@ export default function HomeClient() {
             </button>
           ))}
         </div>
+
+        {/* Parallel reading toggle */}
+        <button
+          onClick={() => setParallel((p) => !p)}
+          className="w-full flex items-center gap-3 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded group"
+        >
+          {/* Custom checkbox */}
+          <div
+            className="flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-all"
+            style={{
+              borderColor: parallel ? "#4a8a60" : "#534e42",
+              backgroundColor: parallel ? "#4a8a60" : "transparent",
+            }}
+          >
+            {parallel && (
+              <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+                <path
+                  d="M1 3.5L3.5 6L8 1"
+                  stroke="white"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </div>
+          <div className="text-left">
+            <span className={`text-sm transition-colors ${parallel ? "text-bible-text" : "text-bible-muted group-hover:text-bible-text"}`}>
+              Read Old &amp; New Testament in parallel
+            </span>
+            <p className="text-[11px] text-bible-dim mt-0.5">
+              Each day includes both OT and NT chapters
+            </p>
+          </div>
+        </button>
 
         {/* Divider */}
         <div className="border-t border-bible-border mb-5" />
