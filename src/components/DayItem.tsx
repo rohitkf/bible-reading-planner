@@ -327,9 +327,9 @@ export default function DayItem({
                     )}
                   </div>
 
-                  {/* Individual chapter checkboxes */}
+                  {/* Individual chapter pills — grid layout */}
                   {(groupOpen || !multiChapter) && multiChapter && (
-                    <div className="ml-6 mt-1.5 space-y-1">
+                    <div className="ml-6 mt-2 flex flex-wrap gap-1.5">
                       {Array.from({ length: group.count }, (_, ci) => {
                         const chapterIdx = group.startIdx + ci;
                         const chDone = completedChapters.has(`${day.day}-${chapterIdx}`);
@@ -338,36 +338,15 @@ export default function DayItem({
                           <button
                             key={ci}
                             onClick={() => onToggleChapter(day.day, chapterIdx)}
-                            className="w-full flex items-center gap-2 text-left group focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded py-0.5"
+                            aria-label={`Chapter ${chapterNum}${chDone ? " (done)" : ""}`}
+                            className="w-9 h-9 rounded-lg text-xs font-medium transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold"
+                            style={{
+                              backgroundColor: chDone ? "#4a8a60" : "#1e1c15",
+                              color: chDone ? "#ffffff" : "#534e42",
+                              border: `1px solid ${chDone ? "#4a8a60" : "#2c2920"}`,
+                            }}
                           >
-                            <div
-                              className="flex-shrink-0 w-3 h-3 rounded border flex items-center justify-center transition-all"
-                              style={{
-                                borderColor: chDone ? "#4a8a60" : "#534e42",
-                                backgroundColor: chDone ? "#4a8a60" : "transparent",
-                              }}
-                            >
-                              {chDone && (
-                                <svg width="6" height="5" viewBox="0 0 6 5" fill="none">
-                                  <path
-                                    d="M0.5 2.5L2.5 4.5L5.5 0.5"
-                                    stroke="white"
-                                    strokeWidth="1.2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              )}
-                            </div>
-                            <span
-                              className={`text-xs transition-colors ${
-                                chDone
-                                  ? "text-bible-dim line-through"
-                                  : "text-bible-dim group-hover:text-bible-muted"
-                              }`}
-                            >
-                              Ch. {chapterNum}
-                            </span>
+                            {chapterNum}
                           </button>
                         );
                       })}

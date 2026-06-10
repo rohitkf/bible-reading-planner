@@ -26,13 +26,14 @@ export default function PlanClient() {
 
   const n = parseInt(searchParams.get("n") ?? "90", 10);
   const unit = (searchParams.get("unit") ?? "days") as "days" | "months" | "years";
+  const parallel = searchParams.get("parallel") === "1";
 
   const validN = isNaN(n) || n < 1 ? 90 : n;
   const totalDays = getTotalDays(validN, unit);
   const planLabel = formatPlanLabel(validN, unit);
-  const planKey = `${validN}-${unit}`;
+  const planKey = `${validN}-${unit}${parallel ? "-parallel" : ""}`;
 
-  const plan = useMemo(() => generatePlan(totalDays), [totalDays]);
+  const plan = useMemo(() => generatePlan(totalDays, parallel), [totalDays, parallel]);
 
   const {
     completedChapters,
@@ -143,7 +144,7 @@ export default function PlanClient() {
       {/* Back + Share */}
       <div className="px-4 pt-5 pb-1 flex items-center justify-between">
         <button
-          onClick={() => router.push(`/?adjust=1&n=${validN}&unit=${unit}`)}
+          onClick={() => router.push(`/?adjust=1&n=${validN}&unit=${unit}${parallel ? "&parallel=1" : ""}`)}
           className="flex items-center gap-1.5 text-xs text-bible-dim hover:text-bible-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bible-gold rounded tracking-widest uppercase"
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
