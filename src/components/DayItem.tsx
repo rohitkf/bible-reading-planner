@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { DayReading } from "@/lib/planGenerator";
+import { addDays } from "@/lib/dateUtils";
 
 interface DayItemProps {
   day: DayReading;
+  startDate: string | null; // "YYYY-MM-DD" — null means no date to show
   completedChapters: Set<string>;
   onToggleChapter: (day: number, chapterIdx: number) => void;
   onToggleGroup: (day: number, startIdx: number, count: number, complete: boolean) => void;
@@ -119,11 +121,18 @@ function DayProgressBar({ pct }: { pct: number }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function DayItem({
   day,
+  startDate,
   completedChapters,
   onToggleChapter,
   onToggleGroup,
   onToggleDay,
 }: DayItemProps) {
+  // Day-specific date label: "(Jun 10)" — short format, no year
+  const dayDateLabel = useMemo(() => {
+    if (!startDate) return null;
+    const d = addDays(new Date(startDate + "T00:00:00"), day.day - 1);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }, [startDate, day.day]);
   const [expanded, setExpanded] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
   const [showConfetti, setShowConfetti] = useState(false);
@@ -195,6 +204,11 @@ export default function DayItem({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-[10px] tracking-widest text-bible-dim uppercase mb-0.5">
             <span>Day {day.day}</span>
+            {dayDateLabel && (
+              <span className="text-bible-dim normal-case tracking-normal">
+                ({dayDateLabel})
+              </span>
+            )}
             <span>·</span>
             <span>{day.chapterCount}ch</span>
             {partial && (
