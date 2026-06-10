@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Crimson_Pro } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import ParticleBackground from "@/components/ParticleBackground";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -61,7 +62,10 @@ export default function RootLayout({
       </head>
       <body className="font-sans min-h-screen bg-bible-bg text-bible-text">
         <ServiceWorkerRegistrar />
-        {children}
+        <ParticleBackground />
+        <div className="relative" style={{ zIndex: 1 }}>
+          {children}
+        </div>
       </body>
     </html>
   );
