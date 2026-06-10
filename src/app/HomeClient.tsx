@@ -101,7 +101,7 @@ export default function HomeClient() {
         cpd * 3 >= 60
           ? `~${((cpd * 3) / 60).toFixed(1)} hrs`
           : `~${Math.round(cpd * 3)} min`,
-      endDate: formatDate(addDays(today(), totalDays)),
+      endDate: formatDate(addDays(today(), totalDays - 1)),
     };
   }, [totalDays]);
 
@@ -213,7 +213,7 @@ export default function HomeClient() {
             <p className="text-xs text-bible-dim mt-1">{totalDays} days total</p>
           )}
           <p className="text-xs text-bible-dim mt-1">
-            Finishes by{" "}
+            Finishes on{" "}
             <span className="text-bible-muted font-medium">{endDate}</span>
           </p>
         </div>
